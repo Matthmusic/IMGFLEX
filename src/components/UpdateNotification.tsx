@@ -121,8 +121,6 @@ export function UpdateNotification() {
         downloadProgress,
         updateDownloaded,
         error,
-        checking,
-        checkForUpdates,
         downloadUpdate,
         installUpdate,
     } = useAutoUpdater();

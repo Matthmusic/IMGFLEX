@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { DropZone } from './components/DropZone';
 import { UpdateNotification, VersionBadge } from './components/UpdateNotification';
 import imgflexLogo from './assets/IMGFLEX-PNG.png';
