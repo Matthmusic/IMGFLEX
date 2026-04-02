@@ -59,10 +59,7 @@
     },
     "nsis": {
       "oneClick": true,
-      "perMachine": false,
-      "installerIcon": "src/assets/IMGFLEX-PNG.png",
-      "uninstallerIcon": "src/assets/IMGFLEX-PNG.png",
-      "installerHeaderIcon": "src/assets/IMGFLEX-PNG.png"
+      "perMachine": false
     },
     "publish": {
       "provider": "github",
