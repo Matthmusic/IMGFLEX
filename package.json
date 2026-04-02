@@ -1,0 +1,73 @@
+{
+  "name": "img-flex",
+  "private": true,
+  "version": "0.0.1",
+  "main": "electron/main.js",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "electron": "cross-env ELECTRON_DISABLE_SECURITY_WARNINGS=true electron .",
+    "electron:dev": "concurrently -k \"npm run dev\" \"npm run electron\"",
+    "build": "tsc -b && vite build",
+    "dist": "npm run build && electron-builder build --win --publish never",
+    "dist:publish": "npm run build && electron-builder build --win --publish always",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.3",
+    "jimp": "^1.6.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "^24.10.1",
+    "@types/react": "^19.2.5",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.5",
+    "electron-builder": "^26.0.12",
+    "electron-is-dev": "^3.0.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "sharp": "^0.34.5",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.46.4",
+    "vite": "^7.2.4"
+  },
+  "build": {
+    "appId": "com.matthmusic.imgflex",
+    "productName": "IMGFLEX",
+    "icon": "src/assets/IMGFLEX-PNG.png",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "src/assets/IMGFLEX-PNG.png",
+      "artifactName": "IMGFLEX-Setup-${version}.exe"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "installerIcon": "src/assets/IMGFLEX-PNG.png",
+      "uninstallerIcon": "src/assets/IMGFLEX-PNG.png",
+      "installerHeaderIcon": "src/assets/IMGFLEX-PNG.png"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Matthmusic",
+      "repo": "IMGFLEX"
+    }
+  }
+}

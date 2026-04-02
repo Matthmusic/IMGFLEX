@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "version": "1.0.0",
+  "app": {
+    "id": "imgflex",
+    "name": "IMGFLEX",
+    "version": "0.0.1",
+    "description": {
+      "short": "Conversion batch d'images en PNG, JPG, BMP et SVG depuis un glisser-deposer.",
+      "long": "IMGFLEX est un outil de bureau Electron qui convertit en un clic une image source en quatre formats simultanement : PNG, JPG, BMP et SVG. Il suffit de glisser-deposer l'image, de saisir un nom de base et de choisir le dossier de destination. Le traitement est assure par Sharp pour PNG/JPG, Jimp pour BMP et un wrapper SVG base64 pour SVG, avec transparence aplatie sur fond blanc."
+    }
+  },
+  "resources": {
+    "logo": {
+      "path": "src/assets/IMGFLEX-PNG.png",
+      "url": "https://raw.githubusercontent.com/Matthmusic/IMGFLEX/main/src/assets/IMGFLEX-PNG.png"
+    },
+    "icon": {
+      "path": "src/assets/IMGFLEX-PNG.png",
+      "url": "https://raw.githubusercontent.com/Matthmusic/IMGFLEX/main/src/assets/IMGFLEX-PNG.png"
+    }
+  },
+  "detection": {
+    "windows": {
+      "files": [
+        {
+          "path": "%LOCALAPPDATA%\\Programs\\IMGFLEX\\IMGFLEX.exe",
+          "description": "Executable principal (installation per-user NSIS)"
+        }
+      ],
+      "directories": [
+        {
+          "path": "%APPDATA%\\IMGFLEX",
+          "description": "Donnees utilisateur Electron"
+        }
+      ]
+    },
+    "priority": "files"
+  },
+  "metadata": {
+    "author": {
+      "name": "Matthmusic",
+      "url": "https://github.com/Matthmusic"
+    },
+    "category": "Utilitaires",
+    "tags": ["images", "conversion", "batch", "png", "jpg", "bmp", "svg", "drag-drop"],
+    "repository": {
+      "type": "github",
+      "url": "https://github.com/Matthmusic/IMGFLEX",
+      "branch": "main"
+    },
+    "license": "MIT",
+    "compatibility": {
+      "os": ["windows"],
+      "minVersion": "Windows 10"
+    }
+  },
+  "installation": {
+    "type": "installer",
+    "downloadUrl": "https://github.com/Matthmusic/IMGFLEX/releases/latest/download/IMGFLEX-Setup-0.0.1.exe"
+  },
+  "changelog": {
+    "0.0.1": {
+      "date": "2026-04-02",
+      "changes": [
+        "Version initiale",
+        "Conversion batch vers PNG, JPG, BMP et SVG",
+        "Interface glisser-deposer avec apercu instantane",
+        "Selection du dossier de destination via dialog natif",
+        "Nommage automatique prefixe par le nom saisi",
+        "Transparence aplatie sur fond blanc pour JPG et BMP",
+        "Systeme de mise a jour automatique via GitHub Releases"
+      ]
+    }
+  }
+}
