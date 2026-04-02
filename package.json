@@ -69,7 +69,8 @@
     "publish": {
       "provider": "github",
       "owner": "Matthmusic",
-      "repo": "IMGFLEX"
+      "repo": "IMGFLEX",
+      "releaseType": "release"
     }
   }
 }
