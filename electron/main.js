@@ -4,7 +4,6 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { writeFile } from 'fs/promises';
 import sharp from 'sharp';
-import { Jimp } from 'jimp'; // Note: Check Jimp import style for v1
 import isDev from 'electron-is-dev';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -189,26 +188,51 @@ ipcMain.handle('process-batch-image', async (event, { filePath, companyName }) =
             results.push(outputPath);
         }
 
-        // 3. Process BMP with Jimp (Reliable for BMP)
+        // 3. Process BMP via Sharp raw pixels + encodage BMP manuel (sans Jimp)
         try {
             console.log('Starting BMP generation...');
             const bmpFilename = `${safeName}-BMP.bmp`;
             const bmpPath = join(outputDir, bmpFilename);
 
-            // Read properly
-            const image = await Jimp.read(filePath);
+            const { data, info } = await sharp(filePath)
+                .flatten({ background: { r: 255, g: 255, b: 255 } })
+                .toColorspace('srgb')
+                .raw()
+                .toBuffer({ resolveWithObject: true });
 
-            // Fix Black Background: Create a white background and composite
-            // Jimp logic to flatten transparency to white
-            const whiteBg = new Jimp({
-                width: image.bitmap.width,
-                height: image.bitmap.height,
-                color: 0xffffffff // Hex for White
-            });
+            const { width, height, channels } = info;
+            const rowSize = Math.floor((width * 3 + 3) / 4) * 4;
+            const pixelDataSize = rowSize * height;
+            const fileSize = 54 + pixelDataSize;
+            const bmp = Buffer.alloc(fileSize, 0);
 
-            whiteBg.composite(image, 0, 0);
-            await whiteBg.write(bmpPath); // In Jimp v1, verify write/writeAsync
+            // BMP File Header (14 octets)
+            bmp.write('BM', 0, 'ascii');
+            bmp.writeUInt32LE(fileSize, 2);
+            bmp.writeUInt32LE(54, 10);
 
+            // BITMAPINFOHEADER (40 octets)
+            bmp.writeUInt32LE(40, 14);
+            bmp.writeInt32LE(width, 18);
+            bmp.writeInt32LE(-height, 22); // négatif = top-down (même ordre que Sharp)
+            bmp.writeUInt16LE(1, 26);
+            bmp.writeUInt16LE(24, 28);
+            bmp.writeUInt32LE(pixelDataSize, 34);
+            bmp.writeInt32LE(2835, 38);
+            bmp.writeInt32LE(2835, 42);
+
+            // Pixels : Sharp = RGB, BMP = BGR
+            for (let y = 0; y < height; y++) {
+                for (let x = 0; x < width; x++) {
+                    const src = (y * width + x) * channels;
+                    const dst = 54 + y * rowSize + x * 3;
+                    bmp[dst]     = data[src + 2]; // B
+                    bmp[dst + 1] = data[src + 1]; // G
+                    bmp[dst + 2] = data[src];     // R
+                }
+            }
+
+            await writeFile(bmpPath, bmp);
             results.push(bmpPath);
             console.log('BMP generated:', bmpPath);
         } catch (bmpError) {
