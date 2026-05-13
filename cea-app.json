@@ -4,7 +4,7 @@
   "app": {
     "id": "imgflex",
     "name": "IMGFLEX",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": {
       "short": "Conversion batch d'images en PNG, JPG, BMP et SVG depuis un glisser-deposer.",
       "long": "IMGFLEX est un outil de bureau Electron qui convertit en un clic une image source en quatre formats simultanement : PNG, JPG, BMP et SVG. Il suffit de glisser-deposer l'image, de saisir un nom de base et de choisir le dossier de destination. Le traitement est assure par Sharp pour PNG/JPG, Jimp pour BMP et un wrapper SVG base64 pour SVG, avec transparence aplatie sur fond blanc."
@@ -57,9 +57,15 @@
   },
   "installation": {
     "type": "installer",
-    "downloadUrl": "https://github.com/Matthmusic/IMGFLEX/releases/latest/download/IMGFLEX-Setup-0.1.0.exe"
+    "downloadUrl": "https://github.com/Matthmusic/IMGFLEX/releases/latest/download/IMGFLEX-Setup-0.1.1.exe"
   },
   "changelog": {
+    "0.1.1": {
+      "date": "2026-05-13",
+      "changes": [
+        "fix: BMP + refactor pipeline image — encodage BMP manuel sans Jimp, compatible SVG et tous formats"
+      ]
+    },
     "0.1.0": {
       "date": "2026-04-02",
       "changes": [
