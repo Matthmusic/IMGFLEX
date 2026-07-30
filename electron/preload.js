@@ -6,6 +6,11 @@ contextBridge.exposeInMainWorld('electron', {
     getFilePath: (file) => webUtils.getPathForFile(file),
     processBatchImage: (data) => ipcRenderer.invoke('process-batch-image', data),
 
+    // Output folder access
+    openOutputFolder: (dirPath) => ipcRenderer.invoke('open-output-folder', dirPath),
+    revealFile: (filePath) => ipcRenderer.invoke('reveal-file', filePath),
+    readOutputFile: (filePath) => ipcRenderer.invoke('read-output-file', filePath),
+
     // Window controls
     minimize: () => ipcRenderer.send('window-minimize'),
     maximize: () => ipcRenderer.send('window-maximize'),

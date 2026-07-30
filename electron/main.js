@@ -1,16 +1,22 @@
 
 import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
-import { join, dirname } from 'path';
+import { join, dirname, resolve, sep, extname } from 'path';
 import { fileURLToPath } from 'url';
-import { writeFile } from 'fs/promises';
+import { writeFile, readFile, copyFile, stat } from 'fs/promises';
 import sharp from 'sharp';
 import isDev from 'electron-is-dev';
+import { buildPipelineFactory } from './imagePipeline.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 let mainWindow;
 let autoUpdaterInstance = null;
+
+// Dossier de la dernière génération. Sert de périmètre autorisé aux handlers
+// qui lisent ou révèlent un fichier : sans ça, le renderer disposerait d'une
+// primitive de lecture de disque arbitraire.
+let lastOutputDir = null;
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -140,8 +146,63 @@ app.on('window-all-closed', () => {
     }
 });
 
+// ── Output folder access ──────────────────────────────────────────────────────
+
+const MIME_BY_EXT = {
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.bmp': 'image/bmp',
+    '.svg': 'image/svg+xml',
+};
+
+function isInsideLastOutputDir(target) {
+    if (!lastOutputDir || !target) return false;
+
+    let base = resolve(lastOutputDir);
+    let candidate = resolve(target);
+
+    if (process.platform === 'win32') {
+        base = base.toLowerCase();
+        candidate = candidate.toLowerCase();
+    }
+
+    const prefix = base.endsWith(sep) ? base : base + sep;
+    return candidate === base || candidate.startsWith(prefix);
+}
+
+ipcMain.handle('open-output-folder', async (_event, dirPath) => {
+    if (!isInsideLastOutputDir(dirPath)) {
+        return { success: false, error: 'Dossier hors du périmètre autorisé' };
+    }
+    // openPath renvoie une chaîne vide en cas de succès, le message d'erreur sinon.
+    const error = await shell.openPath(dirPath);
+    return error ? { success: false, error } : { success: true };
+});
+
+ipcMain.handle('reveal-file', (_event, filePath) => {
+    if (!isInsideLastOutputDir(filePath)) {
+        return { success: false, error: 'Fichier hors du périmètre autorisé' };
+    }
+    shell.showItemInFolder(filePath);
+    return { success: true };
+});
+
+ipcMain.handle('read-output-file', async (_event, filePath) => {
+    if (!isInsideLastOutputDir(filePath)) {
+        return { success: false, error: 'Fichier hors du périmètre autorisé' };
+    }
+    try {
+        const bytes = await readFile(filePath);
+        const mime = MIME_BY_EXT[extname(filePath).toLowerCase()] || 'application/octet-stream';
+        return { success: true, bytes, mime };
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
+});
+
 // ── Image processing ──────────────────────────────────────────────────────────
-ipcMain.handle('process-batch-image', async (event, { filePath, companyName }) => {
+ipcMain.handle('process-batch-image', async (event, { filePath, companyName, targetSize }) => {
     console.log('Processing batch for:', filePath);
     try {
         // 1. Ask user for destination folder
@@ -156,11 +217,15 @@ ipcMain.handle('process-batch-image', async (event, { filePath, companyName }) =
         }
 
         const outputDir = filePaths[0];
+        lastOutputDir = outputDir;
         console.log('Output directory:', outputDir);
 
         // Sanitize company name
         const safeName = companyName.toUpperCase().replace(/[^A-Z0-9 _-]/g, '').trim();
         const results = [];
+
+        const metadata = await sharp(filePath).metadata();
+        const { isVector, createPipeline } = buildPipelineFactory(filePath, metadata, targetSize);
 
         // 2. Process PNG and JPG with Sharp (Fast & Good Quality)
         const tasks = [
@@ -168,24 +233,29 @@ ipcMain.handle('process-batch-image', async (event, { filePath, companyName }) =
             { suffix: '-JPG', format: 'jpg', options: { quality: 90, mozjpeg: true } },
         ];
 
-        const pipeline = sharp(filePath);
-
         for (const task of tasks) {
             const outputFilename = `${safeName}${task.suffix}.${task.format}`;
             const outputPath = join(outputDir, outputFilename);
 
-            let currentPipeline = pipeline.clone();
+            let currentPipeline = createPipeline();
 
             // For JPG, flatten transparency to white
             if (task.format === 'jpg') {
                 currentPipeline = currentPipeline.flatten({ background: { r: 255, g: 255, b: 255 } });
             }
 
-            await currentPipeline
+            const outputInfo = await currentPipeline
                 .toFormat(task.format, task.options)
                 .toFile(outputPath);
 
-            results.push(outputPath);
+            results.push({
+                path: outputPath,
+                name: outputFilename,
+                format: task.suffix.slice(1),
+                width: outputInfo.width,
+                height: outputInfo.height,
+                size: outputInfo.size,
+            });
         }
 
         // 3. Process BMP via Sharp raw pixels + encodage BMP manuel (sans Jimp)
@@ -194,7 +264,7 @@ ipcMain.handle('process-batch-image', async (event, { filePath, companyName }) =
             const bmpFilename = `${safeName}-BMP.bmp`;
             const bmpPath = join(outputDir, bmpFilename);
 
-            const { data, info } = await sharp(filePath)
+            const { data, info } = await createPipeline()
                 .flatten({ background: { r: 255, g: 255, b: 255 } })
                 .toColorspace('srgb')
                 .raw()
@@ -233,33 +303,66 @@ ipcMain.handle('process-batch-image', async (event, { filePath, companyName }) =
             }
 
             await writeFile(bmpPath, bmp);
-            results.push(bmpPath);
+            results.push({
+                path: bmpPath,
+                name: bmpFilename,
+                format: 'BMP',
+                width,
+                height,
+                size: fileSize,
+            });
             console.log('BMP generated:', bmpPath);
         } catch (bmpError) {
             console.error('BMP Error:', bmpError);
             return { success: false, error: `BMP Failed: ${bmpError.message}` };
         }
 
-        // 4. Process SVG with Sharp (embedded raster)
+        // 4. Process SVG
         try {
             const svgFilename = `${safeName}-SVG.svg`;
             const svgPath = join(outputDir, svgFilename);
 
-            const { data, info } = await sharp(filePath)
-                .png()
-                .toBuffer({ resolveWithObject: true });
+            if (isVector) {
+                // Source vectorielle : on la recopie telle quelle. Y embarquer
+                // un raster reviendrait à figer une résolution dans un format
+                // qui n'en a pas.
+                await copyFile(filePath, svgPath);
+                const { size } = await stat(svgPath);
+                results.push({
+                    path: svgPath,
+                    name: svgFilename,
+                    format: 'SVG',
+                    width: metadata.width || 0,
+                    height: metadata.height || 0,
+                    size,
+                    vector: true,
+                });
+            } else {
+                // Source matricielle : pas de vectoriel à récupérer, on embarque
+                // le raster dans un conteneur SVG.
+                const { data, info } = await sharp(filePath)
+                    .png()
+                    .toBuffer({ resolveWithObject: true });
 
-            const base64 = data.toString('base64');
-            const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${info.width}" height="${info.height}" viewBox="0 0 ${info.width} ${info.height}">\n  <image href="data:image/png;base64,${base64}" width="${info.width}" height="${info.height}"/>\n</svg>`;
+                const base64 = data.toString('base64');
+                const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${info.width}" height="${info.height}" viewBox="0 0 ${info.width} ${info.height}">\n  <image href="data:image/png;base64,${base64}" width="${info.width}" height="${info.height}"/>\n</svg>`;
 
-            await writeFile(svgPath, svgContent, 'utf-8');
-            results.push(svgPath);
+                await writeFile(svgPath, svgContent, 'utf-8');
+                results.push({
+                    path: svgPath,
+                    name: svgFilename,
+                    format: 'SVG',
+                    width: info.width,
+                    height: info.height,
+                    size: Buffer.byteLength(svgContent, 'utf-8'),
+                });
+            }
         } catch (svgError) {
             console.error('SVG Error:', svgError);
             return { success: false, error: `SVG Failed: ${svgError.message}` };
         }
 
-        return { success: true, files: results };
+        return { success: true, outputDir, files: results };
     } catch (error) {
         console.error('Batch process error:', error);
         return { success: false, error: error.message };

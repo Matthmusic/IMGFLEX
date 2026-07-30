@@ -96,7 +96,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileSelect }) => {
                 ou cliquer pour parcourir
             </p>
             <div style={{ display: 'flex', gap: '6px' }}>
-                {['PNG', 'JPG', 'BMP', 'WebP', 'GIF'].map((fmt) => (
+                {['SVG', 'PNG', 'JPG', 'BMP', 'WebP', 'GIF'].map((fmt) => (
                     <span key={fmt} style={{
                         fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.05em',
                         padding: '3px 7px', borderRadius: '4px',

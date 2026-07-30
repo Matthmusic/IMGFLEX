@@ -1,7 +1,10 @@
 
 import { useState, useEffect } from 'react';
 import { DropZone } from './components/DropZone';
+import { OutputPreview } from './components/OutputPreview';
 import { UpdateNotification, VersionBadge } from './components/UpdateNotification';
+import type { GeneratedFile } from './types/electron';
+import { SVG_SIZE_OPTIONS, DEFAULT_SVG_SIZE, isVectorFile } from './constants';
 import imgflexLogo from './assets/IMGFLEX-PNG.png';
 
 // SVG icons (Windows-style controls)
@@ -21,6 +24,11 @@ const CloseIcon = () => (
     <line x1="9" y1="1" x2="1" y2="9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
+const FolderIcon = () => (
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+  </svg>
+);
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
@@ -28,7 +36,12 @@ function App() {
   const [companyName, setCompanyName] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [status, setStatus] = useState<string>('');
-  const [generatedFiles, setGeneratedFiles] = useState<string[]>([]);
+  const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
+  const [outputDir, setOutputDir] = useState<string | null>(null);
+  const [stageTab, setStageTab] = useState<'source' | 'results'>('source');
+  const [svgSize, setSvgSize] = useState<number>(DEFAULT_SVG_SIZE);
+
+  const isVectorSource = file ? isVectorFile(file) : false;
 
   useEffect(() => {
     return () => {
@@ -41,8 +54,21 @@ function App() {
     setPreviewUrl(URL.createObjectURL(selectedFile));
     setStatus('Prêt');
     setGeneratedFiles([]);
+    setOutputDir(null);
+    setStageTab('source');
     // Reset or clean up company name? Maybe keep it if processing multiple for same company
     // auto-focus company name input could be nice.
+  };
+
+  const handleOpenFolder = async () => {
+    if (!outputDir) return;
+    const res = await window.electron.openOutputFolder(outputDir);
+    if (!res.success) setStatus(`❌ Erreur : ${res.error}`);
+  };
+
+  const handleRevealFile = async (filePath: string) => {
+    const res = await window.electron.revealFile(filePath);
+    if (!res.success) setStatus(`❌ Erreur : ${res.error}`);
   };
 
   const handleProcess = async () => {
@@ -65,17 +91,20 @@ function App() {
 
       const result = await window.electron.processBatchImage({
         filePath,
-        companyName
+        companyName,
+        targetSize: isVectorSource ? svgSize : null,
       });
 
       if (result.success && result.files) {
         setStatus('✅ Terminé ! Fichiers sauvegardés.');
         setGeneratedFiles(result.files);
+        setOutputDir(result.outputDir ?? null);
+        setStageTab('results');
       } else {
-        setStatus(`❌ Error: ${result.error}`);
+        setStatus(`❌ Erreur : ${result.error}`);
       }
-    } catch (err: any) {
-      setStatus(`❌ Error: ${err.message}`);
+    } catch (err) {
+      setStatus(`❌ Erreur : ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsProcessing(false);
     }
@@ -110,30 +139,52 @@ function App() {
 
         {/* Left: Stage */}
         <div className="stage-panel">
-          {file && previewUrl ? (
-            <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <img
-                src={previewUrl}
-                alt="Preview"
-                style={{ maxWidth: '90%', maxHeight: '80vh', borderRadius: '8px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
-              />
-              <button
-                onClick={() => { setFile(null); setPreviewUrl(null); }}
-                style={{
-                  position: 'absolute', top: 20, right: 20,
-                  background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none',
-                  borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer',
-                  fontSize: '1.2rem'
-                }}
-              >
-                ×
-              </button>
+          <div className="stage-inner">
+            {generatedFiles.length > 0 && (
+              <div className="stage-tabs">
+                <button
+                  className={`stage-tab ${stageTab === 'source' ? 'active' : ''}`}
+                  onClick={() => setStageTab('source')}
+                  disabled={!file}
+                >
+                  Source
+                </button>
+                <button
+                  className={`stage-tab ${stageTab === 'results' ? 'active' : ''}`}
+                  onClick={() => setStageTab('results')}
+                >
+                  Résultats
+                </button>
+              </div>
+            )}
+
+            <div className="stage-content">
+              {stageTab === 'results' && generatedFiles.length > 0 ? (
+                <OutputPreview files={generatedFiles} />
+              ) : file && previewUrl ? (
+                <div style={{ position: 'relative', width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                  <img
+                    src={previewUrl}
+                    alt="Preview"
+                    style={{ maxWidth: '90%', maxHeight: '80vh', borderRadius: '8px', boxShadow: '0 20px 50px rgba(0,0,0,0.5)' }}
+                  />
+                  <button
+                    onClick={() => { setFile(null); setPreviewUrl(null); }}
+                    style={{
+                      position: 'absolute', top: 20, right: 20,
+                      background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none',
+                      borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer',
+                      fontSize: '1.2rem'
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ) : (
+                <DropZone onFileSelect={handleFileSelect} />
+              )}
             </div>
-          ) : (
-            <div style={{ width: '100%', height: '100%' }}>
-              <DropZone onFileSelect={handleFileSelect} />
-            </div>
-          )}
+          </div>
         </div>
 
         {/* Right: Inspector */}
@@ -168,6 +219,27 @@ function App() {
             />
           </div>
 
+          {isVectorSource && (
+            <div className="input-group">
+              <label className="label">
+                Taille de sortie <span className="label-hint">— source vectorielle</span>
+              </label>
+              <div className="size-options">
+                {SVG_SIZE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.key}
+                    className={`size-option ${svgSize === opt.size ? 'active' : ''}`}
+                    onClick={() => setSvgSize(opt.size)}
+                    title={`Côté le plus long : ${opt.size} px`}
+                  >
+                    <span className="size-option-label">{opt.label}</span>
+                    <span className="size-option-px">{opt.size} px</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Format preview chips */}
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px', marginBottom: '24px' }}>
             {(['PNG', 'JPG', 'BMP', 'SVG'] as const).map((fmt) => {
@@ -187,6 +259,11 @@ function App() {
                 <div style={{ fontSize: '0.7rem', color: '#e5e7eb', fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', padding: '0 4px' }}>
                   {(companyName || 'SOCIÉTÉ')}-{fmt}.{fmt.toLowerCase()}
                 </div>
+                {isVectorSource && (
+                  <div style={{ fontSize: '0.6rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
+                    {fmt === 'SVG' ? 'vectoriel' : `${svgSize} px`}
+                  </div>
+                )}
               </div>
               );
             })}
@@ -231,21 +308,33 @@ function App() {
                   {status}
                 </p>
                 {generatedFiles.length > 0 && (
-                  <ul style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', listStyle: 'none' }}>
-                    {generatedFiles.map((f, i) => (
-                      <li key={i} style={{
-                        display: 'flex', alignItems: 'center', gap: '8px',
-                        fontSize: '0.8rem', color: 'var(--text-secondary)',
-                        padding: '6px 8px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.04)',
-                      }}>
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#28c840" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                          <polyline points="14 2 14 8 20 8"/>
-                        </svg>
-                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.split(/[\\/]/).pop()}</span>
-                      </li>
-                    ))}
-                  </ul>
+                  <>
+                    <ul style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '6px', listStyle: 'none' }}>
+                      {generatedFiles.map((f) => (
+                        <li key={f.path}>
+                          <button
+                            className="file-row"
+                            onClick={() => handleRevealFile(f.path)}
+                            title={`Afficher ${f.name} dans l'Explorateur`}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#28c840" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                              <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <span className="file-row-name">{f.name}</span>
+                            <span className="file-row-reveal">↗</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {outputDir && (
+                      <button className="btn open-folder-btn" onClick={handleOpenFolder} title={outputDir}>
+                        <FolderIcon />
+                        Ouvrir le dossier
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             )}

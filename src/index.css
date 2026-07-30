@@ -202,6 +202,364 @@ body {
   }
 }
 
+/* ── Aperçu des sorties ─────────────────────────── */
+
+.stage-inner {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.stage-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stage-content > * { width: 100%; }
+
+
+/* Damier de transparence, pour distinguer un fond blanc d'un fond transparent */
+.checkerboard {
+  background-color: #141414;
+  background-image:
+    linear-gradient(45deg, #232323 25%, transparent 25%),
+    linear-gradient(-45deg, #232323 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #232323 75%),
+    linear-gradient(-45deg, transparent 75%, #232323 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+
+.stage-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  align-self: center;
+  margin-bottom: 12px;
+}
+
+.stage-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  padding: 6px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.stage-tab:hover:not(:disabled) { color: var(--text-primary); }
+.stage-tab:disabled { opacity: 0.35; cursor: default; }
+
+.stage-tab.active {
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.output-preview {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.output-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(8px, 1.5vw, 16px);
+}
+
+.output-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.output-tile:hover {
+  border-color: var(--accent-color);
+  transform: translateY(-2px);
+}
+
+.output-tile-canvas {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  overflow: hidden;
+  aspect-ratio: 4 / 3;
+}
+
+.output-tile-canvas img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.output-tile-placeholder {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  text-align: center;
+  padding: 0 8px;
+}
+
+.output-tile-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.output-tile-meta {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.format-badge {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+}
+
+.fmt-png { color: var(--color-png); background: rgba(229, 57, 53, 0.12); }
+.fmt-jpg { color: var(--color-jpg); background: rgba(122, 197, 41, 0.12); }
+.fmt-bmp { color: var(--color-bmp); background: rgba(31, 128, 255, 0.12); }
+.fmt-svg { color: var(--color-svg); background: rgba(255, 210, 31, 0.12); }
+
+/* ── Sélecteur de taille (source vectorielle) ───── */
+
+.label-hint {
+  color: #6b7280;
+  font-size: 0.78rem;
+}
+
+.size-options {
+  display: flex;
+  gap: 6px;
+}
+
+.size-option {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 8px 4px;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  background: var(--bg-primary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.size-option:hover {
+  border-color: var(--accent-light);
+  color: var(--text-primary);
+}
+
+.size-option.active {
+  border-color: var(--accent-color);
+  background: rgba(31, 128, 255, 0.12);
+  color: var(--text-primary);
+}
+
+.size-option-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.size-option-px {
+  font-size: 0.62rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.03em;
+}
+
+.size-option.active .size-option-px { color: var(--accent-light); }
+
+/* ── Liste des fichiers générés ─────────────────── */
+
+.file-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.04);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 0.8rem;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.file-row:hover {
+  background-color: rgba(255, 255, 255, 0.09);
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+}
+
+.file-row-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-row-reveal {
+  flex-shrink: 0;
+  opacity: 0;
+  color: var(--accent-light);
+  transition: opacity 0.15s;
+}
+
+.file-row:hover .file-row-reveal { opacity: 1; }
+
+.open-folder-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  font-size: 0.85rem;
+}
+
+/* ── Lightbox ───────────────────────────────────── */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 24px;
+  animation: fadeSlideIn 0.15s ease forwards;
+}
+
+.lightbox-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  max-height: 100%;
+  min-width: 0;
+}
+
+.lightbox-image {
+  max-width: 78vw;
+  max-height: 74vh;
+  object-fit: contain;
+  border-radius: var(--radius-md);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+.lightbox-error {
+  padding: 48px 32px;
+  color: #ff5f57;
+  font-size: 0.875rem;
+  border: 1px dashed rgba(255, 95, 87, 0.5);
+  border-radius: var(--radius-md);
+}
+
+.lightbox-caption {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lightbox-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.lightbox-meta {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.lightbox-counter {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  letter-spacing: 0.08em;
+}
+
+.lightbox-nav,
+.lightbox-close {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  cursor: pointer;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition);
+  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.lightbox-nav {
+  width: 44px;
+  height: 44px;
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.lightbox-close {
+  position: absolute;
+  top: 44px;
+  right: 24px;
+  width: 34px;
+  height: 34px;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.lightbox-nav:hover,
+.lightbox-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: var(--accent-color);
+}
+
 /* ── Animations ─────────────────────────────────── */
 @keyframes fadeSlideIn {
   from { opacity: 0; transform: translateY(6px); }

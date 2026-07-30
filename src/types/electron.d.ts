@@ -10,6 +10,26 @@ export interface DownloadProgress {
     total: number;
 }
 
+export type OutputFormat = 'PNG' | 'JPG' | 'BMP' | 'SVG';
+
+export interface GeneratedFile {
+    path: string;
+    name: string;
+    format: OutputFormat;
+    width: number;
+    height: number;
+    size: number;
+    /** Vrai pour un SVG recopié depuis une source vectorielle : sans résolution fixe. */
+    vector?: boolean;
+}
+
+export interface BatchResult {
+    success: boolean;
+    outputDir?: string;
+    files?: GeneratedFile[];
+    error?: string;
+}
+
 declare global {
     interface Window {
         electron: {
@@ -18,7 +38,22 @@ declare global {
             processBatchImage: (data: {
                 filePath: string;
                 companyName: string;
-            }) => Promise<{ success: boolean; files?: string[]; error?: string }>;
+                /**
+                 * Côté le plus long visé, en pixels. N'a d'effet que sur une
+                 * source vectorielle, seule à ne pas avoir de résolution propre.
+                 */
+                targetSize?: number | null;
+            }) => Promise<BatchResult>;
+
+            // Output folder access
+            openOutputFolder: (dirPath: string) => Promise<{ success: boolean; error?: string }>;
+            revealFile: (filePath: string) => Promise<{ success: boolean; error?: string }>;
+            // Les octets traversent l'IPC par structured clone : toujours un
+            // ArrayBuffer classique, jamais un SharedArrayBuffer.
+            readOutputFile: (filePath: string) => Promise<
+                { success: true; bytes: Uint8Array<ArrayBuffer>; mime: string } |
+                { success: false; error: string }
+            >;
 
             // Window controls
             minimize: () => void;
